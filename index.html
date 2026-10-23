@@ -1,0 +1,1327 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>[hidden]{display:none!important}img{max-width:100%}body{margin:0}</style>
+<title>מחולל לו"ז ליום הרצאות</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Rubik:wght@500;700&display=swap">
+<style>
+/* Layout: settings column beside a live timetable (stacked on phones), a proportional "day ribbon" above the table, export bar under it. */
+:root {
+  --bg: #F5F7FA;
+  --surface: #FFFFFF;
+  --fg: #15202C;
+  --muted: #5A6878;
+  --line: #DCE3EB;
+  --accent: #1F4E78;
+  --accent-fg: #FFFFFF;
+  --accent-soft: #E5EDF5;
+  --break: #EFF2F6;
+  --long: #D6E3F0;
+  --edge: #8FA3B8;
+  --danger: #B42318;
+  --danger-soft: #FDECEA;
+  --ok: #18794E;
+  --font-body: "Heebo", "Segoe UI", Arial, "Helvetica Neue", sans-serif;
+  --font-display: "Rubik", "Heebo", "Segoe UI", Arial, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0E141B; --surface: #161F29; --fg: #E6ECF2; --muted: #98A6B5; --line: #283442;
+    --accent: #80B1DF; --accent-fg: #0E141B; --accent-soft: #1B2D40; --break: #1B2530; --long: #23384E;
+    --edge: #5D7287; --danger: #F59A90; --danger-soft: #3A1E1C; --ok: #6FD3A2; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0E141B; --surface: #161F29; --fg: #E6ECF2; --muted: #98A6B5; --line: #283442;
+  --accent: #80B1DF; --accent-fg: #0E141B; --accent-soft: #1B2D40; --break: #1B2530; --long: #23384E;
+  --edge: #5D7287; --danger: #F59A90; --danger-soft: #3A1E1C; --ok: #6FD3A2; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg);
+  font-family: var(--font-body); font-size: 16px; line-height: 1.5;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 0;
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+header.top { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 16px; }
+.brand { flex: 1 1 260px; min-width: 0; }
+.brand h1 { font-family: var(--font-display); font-weight: 700; font-size: 1.5rem; line-height: 1.2; margin: 0; text-wrap: balance; }
+.brand p { margin: 2px 0 0; color: var(--muted); font-size: .95rem; }
+.top-actions { display: flex; align-items: center; gap: 8px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; background: var(--surface); gap: 2px; }
+.seg button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; font-size: .9rem; min-height: 36px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--accent); color: var(--accent-fg); font-weight: 500; }
+.icon-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 999px; min-width: 40px; min-height: 40px; padding: 0 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.icon-btn:hover { border-color: var(--edge); }
+.pop-wrap { position: relative; }
+.pop { position: absolute; top: calc(100% + 6px); inset-inline-end: 0; z-index: 30; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 8px 24px rgba(15, 30, 50, .14); padding: 6px; min-width: 210px; display: flex; flex-direction: column; }
+.pop button { text-align: start; border: 0; background: transparent; padding: 10px 12px; border-radius: 8px; min-height: 44px; }
+.pop button:hover { background: var(--accent-soft); }
+.pop button.danger { color: var(--danger); }
+
+/* Day tabs */
+.tabs { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; border-bottom: 1px solid var(--line); padding-bottom: 8px; }
+.tab { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); background: var(--surface); border-radius: 999px; padding: 4px 6px 4px 14px; min-height: 40px; }
+[dir="rtl"] .tab { padding: 4px 14px 4px 6px; }
+.tab.active { border-color: var(--accent); background: var(--accent-soft); font-weight: 500; }
+.tab .tab-name { border: 0; background: transparent; padding: 4px 0; }
+.tab input { border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; width: 10em; background: var(--surface); }
+.tab .mini { border: 0; background: transparent; width: 30px; height: 30px; border-radius: 50%; color: var(--muted); font-size: .95rem; }
+.tab .mini:hover { background: var(--line); color: var(--fg); }
+
+/* Main grid */
+.main { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: 20px; align-items: start; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
+.settings { padding: 18px; display: flex; flex-direction: column; gap: 16px; }
+.settings-head { display: flex; justify-content: space-between; align-items: center; }
+.settings-head h2 { font-family: var(--font-display); font-size: 1.05rem; font-weight: 500; margin: 0; }
+.collapse-btn { display: none; }
+.settings-body { display: flex; flex-direction: column; gap: 16px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field > label, .field > .lbl { font-size: .92rem; font-weight: 500; }
+.field input[type="time"], .field input[type="number"], .field select {
+  border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; min-height: 44px; width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+.field input.invalid { border-color: var(--danger); background: var(--danger-soft); }
+.row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hint { font-size: .85rem; color: var(--muted); margin: 0; }
+.err { font-size: .85rem; color: var(--danger); margin: 0; }
+.len-line { display: flex; gap: 8px; align-items: stretch; flex-wrap: wrap; }
+.len-line input { flex: 1 1 90px; width: auto !important; }
+.divider { border: 0; border-top: 1px solid var(--line); margin: 0; }
+.switch { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 44px; cursor: pointer; }
+.switch .s-text { display: flex; flex-direction: column; }
+.switch .s-text b { font-weight: 500; font-size: .95rem; }
+.switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.track { flex: none; width: 44px; height: 26px; border-radius: 999px; background: var(--line); position: relative; transition: background .15s; }
+.track::after { content: ""; position: absolute; top: 3px; inset-inline-start: 3px; width: 20px; height: 20px; border-radius: 50%; background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.25); transition: inset-inline-start .15s; }
+.switch input:checked + .track { background: var(--accent); }
+.switch input:checked + .track::after { inset-inline-start: 21px; }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sub { display: flex; flex-direction: column; gap: 12px; padding-inline-start: 12px; border-inline-start: 2px solid var(--accent-soft); }
+
+/* Results */
+.results { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.summary { padding: 18px; display: flex; flex-direction: column; gap: 14px; }
+.headline { display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px 14px; }
+.headline .big { font-family: var(--font-display); font-weight: 700; font-size: 2.1rem; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.headline .txt { font-size: 1.05rem; font-weight: 500; }
+.headline .slack { color: var(--muted); font-size: .95rem; flex-basis: 100%; }
+.banner { border-radius: 8px; padding: 10px 12px; background: var(--danger-soft); color: var(--danger); font-size: .92rem; }
+.notice { border-radius: 8px; padding: 8px 12px; background: var(--accent-soft); font-size: .9rem; }
+.suggest { border: 1px solid var(--accent); border-radius: 8px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; background: var(--accent-soft); }
+.suggest h3 { margin: 0; font-size: 1rem; font-family: var(--font-display); font-weight: 500; }
+.suggest p { margin: 0; font-size: .9rem; color: var(--muted); }
+.suggest ol { margin: 0; padding-inline-start: 22px; display: flex; flex-direction: column; gap: 6px; }
+.suggest li button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 12px; min-height: 40px; text-align: start; }
+.suggest li button:hover { border-color: var(--accent); }
+
+/* Ribbon */
+.ribbon-box { display: flex; flex-direction: column; gap: 4px; }
+.ribbon { display: flex; height: 34px; border-radius: 7px; overflow: hidden; border: 1px solid var(--line); }
+.ribbon span { min-width: 2px; display: flex; align-items: center; justify-content: center; font-size: .78rem; font-weight: 500; overflow: hidden; white-space: nowrap; border-inline-end: 1px solid var(--surface); }
+.ribbon span:last-child { border-inline-end: 0; }
+.ribbon .k-lecture { background: var(--accent); color: var(--accent-fg); }
+.ribbon .k-break { background: var(--break); }
+.ribbon .k-long { background: var(--long); }
+.ribbon .k-gather, .ribbon .k-wrap { background: repeating-linear-gradient(135deg, var(--surface) 0 4px, var(--break) 4px 8px); }
+.ribbon-ends { display: flex; justify-content: space-between; font-size: .8rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* Table */
+.table-panel { padding: 6px 0 0; }
+.table-tools { display: flex; justify-content: flex-end; padding: 6px 14px 4px; }
+.table-tools .switch { min-height: 36px; gap: 10px; }
+.table-tools .switch b { font-weight: 400; font-size: .9rem; color: var(--muted); }
+.tt-scroll { overflow-x: auto; }
+table.tt { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.tt th { font-size: .82rem; font-weight: 500; color: var(--muted); text-align: start; padding: 8px 10px; border-bottom: 1px solid var(--line); letter-spacing: .02em; }
+.tt td { padding: 4px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; font-size: .95rem; }
+.tt tr:last-child td { border-bottom: 0; }
+.tt .c-num { width: 40px; color: var(--muted); }
+.tt .c-time { width: 76px; }
+.tt .c-len { width: 96px; }
+.tt .c-act { width: 86px; white-space: nowrap; }
+.tt tr.k-break td { background: var(--break); }
+.tt tr.k-long td { background: var(--long); }
+.tt tr.k-gather td, .tt tr.k-wrap td { background: repeating-linear-gradient(135deg, transparent 0 6px, var(--break) 6px 12px); }
+.tt tr.k-lecture td.c-name { font-weight: 500; }
+.name-box { display: flex; align-items: center; gap: 4px; min-width: 0; }
+.name-in, .lect-in { border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 6px 6px; width: 100%; min-width: 0; min-height: 38px; font-weight: inherit; }
+.name-in:hover, .lect-in:hover { border-color: var(--line); }
+.name-in:focus, .lect-in:focus { border-color: var(--accent); background: var(--surface); }
+.lect-in::placeholder { color: var(--muted); font-weight: 400; opacity: .8; }
+.lect-inline { display: none; }
+.lect-inline .lect-in { font-size: .85rem; min-height: 32px; font-weight: 400; }
+.len-in { width: 76px; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 6px 8px; min-height: 38px; font-variant-numeric: tabular-nums; }
+.row-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; min-width: 34px; min-height: 34px; font-size: .95rem; color: var(--muted); }
+.row-btn:hover { color: var(--fg); border-color: var(--edge); }
+.row-btn.danger:hover { color: var(--danger); border-color: var(--danger); }
+.reset-name { border: 0; background: transparent; color: var(--muted); width: 30px; height: 30px; border-radius: 50%; flex: none; font-size: .9rem; }
+.reset-name:hover { background: var(--line); color: var(--fg); }
+.stale { opacity: .45; pointer-events: none; }
+.totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line); border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); overflow: hidden; }
+.totals div { background: var(--surface); padding: 10px 14px; display: flex; flex-direction: column; }
+.totals dt { font-size: .8rem; color: var(--muted); }
+.totals dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* Export bar */
+.export { padding: 12px 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.export .lbl { font-size: .85rem; color: var(--muted); margin-inline-end: 4px; }
+.export button.xbtn { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 14px; min-height: 44px; font-weight: 500; }
+.export button.xbtn.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+.export button.xbtn:hover { border-color: var(--accent); }
+.export button.xbtn:disabled { opacity: .5; cursor: progress; }
+.export .all { display: inline-flex; align-items: center; gap: 6px; font-size: .9rem; margin-inline-start: auto; min-height: 44px; }
+.export .all input { width: 18px; height: 18px; accent-color: var(--accent); }
+footer.foot { color: var(--muted); font-size: .8rem; text-align: center; padding-block: 8px 24px; }
+
+/* Modal and toast */
+.modal-back { position: fixed; inset: 0; background: rgba(10, 20, 30, .45); display: flex; align-items: center; justify-content: center; z-index: 50; padding: 16px; }
+.modal { background: var(--surface); border-radius: 12px; padding: 20px; max-width: 420px; width: 100%; display: flex; flex-direction: column; gap: 16px; border: 1px solid var(--line); }
+.modal p { margin: 0; font-size: 1rem; }
+.modal textarea { width: 100%; min-height: 160px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--bg); font-family: var(--font-body); }
+.modal .btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.modal .btns button { border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 16px; min-height: 44px; }
+.modal .btns button.ok { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); font-weight: 500; }
+.toast { position: fixed; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-size: .92rem; z-index: 60; max-width: min(92vw, 460px); display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; box-shadow: 0 6px 20px rgba(0,0,0,.2); }
+.toast a { color: inherit; font-weight: 700; }
+
+/* Off-screen export canvas for PDF */
+#pdf-stage { position: absolute; top: 0; left: -12000px; width: 760px; background: #fff; color: #111; font-family: "Heebo", Arial, sans-serif; }
+#pdf-stage .page { padding: 36px 40px; background: #fff; }
+#pdf-stage h1 { font-size: 22px; margin: 0 0 4px; }
+#pdf-stage .date { color: #555; font-size: 13px; margin-bottom: 18px; }
+#pdf-stage h2 { font-size: 17px; margin: 0 0 10px; }
+#pdf-stage table { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 18px; }
+#pdf-stage th, #pdf-stage td { border: 1px solid #C9D2DC; padding: 7px 9px; text-align: start; }
+#pdf-stage th { background: #DCE7F2; font-weight: 700; }
+#pdf-stage tr.k-break td { background: #F1F3F6; }
+#pdf-stage tr.k-long td { background: #E3ECF5; }
+
+@media (max-width: 900px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .collapse-btn { display: inline-flex; }
+  .settings.collapsed .settings-body { display: none; }
+}
+@media (max-width: 600px) {
+  .brand h1 { font-size: 1.25rem; }
+  .tt .c-num, .tt .c-lect { display: none; }
+  .lect-inline { display: block; }
+  .tt th, .tt td { padding-inline: 6px; }
+  .tt .c-time { width: 54px; }
+  .tt .c-len { width: 64px; }
+  .len-in { width: 58px; padding: 6px 4px; }
+  .tt .c-act { width: 72px; }
+  .headline .big { font-size: 1.8rem; }
+  .export { position: sticky; bottom: 0; z-index: 20; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); border-radius: var(--radius) var(--radius) 0 0; box-shadow: 0 -4px 16px rgba(15,30,50,.08); }
+  .export .lbl { flex-basis: 100%; }
+  .export button.xbtn { flex: 1 1 auto; padding: 8px 10px; }
+  .export .all { margin-inline-start: 0; flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="top">
+    <div class="brand">
+      <h1 data-t="appTitle">מחולל לו"ז ליום הרצאות</h1>
+      <p data-t="tagline"></p>
+    </div>
+    <div class="top-actions">
+      <div class="seg" role="group" aria-label="Language">
+        <button type="button" id="lang-he" data-lang="he">עברית</button>
+        <button type="button" id="lang-en" data-lang="en">English</button>
+      </div>
+      <div class="pop-wrap">
+        <button type="button" class="icon-btn" id="add-day-btn" aria-haspopup="true"><span data-t="addDay"></span></button>
+        <div class="pop" id="add-day-pop" hidden>
+          <button type="button" id="add-blank" data-t="blankDay"></button>
+          <button type="button" id="add-dup" data-t="dupDay"></button>
+        </div>
+      </div>
+      <div class="pop-wrap">
+        <button type="button" class="icon-btn" id="menu-btn" aria-haspopup="true" data-t-aria="moreMenu">⋯</button>
+        <div class="pop" id="menu-pop" hidden>
+          <button type="button" class="danger" id="reset-all" data-t="resetAll"></button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs" id="tabs" hidden></nav>
+
+  <div class="main">
+    <section class="panel settings" id="settings">
+      <div class="settings-head">
+        <h2 data-t="settings"></h2>
+        <button type="button" class="icon-btn collapse-btn" id="collapse-btn" aria-expanded="true"><span data-t="hide"></span></button>
+      </div>
+      <div class="settings-body">
+        <div class="field">
+          <label for="f-start" data-t="start"></label>
+          <input type="time" id="f-start" step="300">
+          <p class="err" id="e-start" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="f-len" data-t="lecLen"></label>
+          <div class="len-line">
+            <input type="number" id="f-len" inputmode="decimal">
+            <div class="seg" role="group" id="unit-seg">
+              <button type="button" data-unit="min" data-t="unitMin"></button>
+              <button type="button" data-unit="ah" data-t="unitAH"></button>
+            </div>
+          </div>
+          <p class="hint num" id="len-conv"></p>
+          <p class="hint" data-t="ahHint"></p>
+          <p class="err" id="e-lecLen" hidden></p>
+        </div>
+
+        <div class="field">
+          <label for="f-brk" data-t="brk"></label>
+          <input type="number" id="f-brk" min="0" max="120" step="5" inputmode="numeric">
+          <p class="err" id="e-brk" hidden></p>
+        </div>
+
+        <hr class="divider">
+
+        <div class="field">
+          <span class="lbl" data-t="mode"></span>
+          <div class="seg" role="group" id="mode-seg">
+            <button type="button" data-mode="count" data-t="modeCount"></button>
+            <button type="button" data-mode="end" data-t="modeEnd"></button>
+          </div>
+        </div>
+        <div class="field" id="w-count">
+          <label for="f-count" data-t="count"></label>
+          <input type="number" id="f-count" min="1" max="12" step="1" inputmode="numeric">
+          <p class="err" id="e-count" hidden></p>
+        </div>
+        <p class="hint" id="w-count-manual" data-t="countManual" hidden></p>
+        <div class="field" id="w-target" hidden>
+          <label for="f-target" data-t="target"></label>
+          <input type="time" id="f-target" step="300">
+          <p class="err" id="e-target" hidden></p>
+        </div>
+
+        <hr class="divider">
+
+        <label class="switch" for="t-long">
+          <span class="s-text"><b data-t="longOn"></b></span>
+          <input type="checkbox" id="t-long"><span class="track" aria-hidden="true"></span>
+        </label>
+        <div class="sub" id="w-long" hidden>
+          <div class="row2">
+            <div class="field">
+              <label for="f-longlen" data-t="longLen"></label>
+              <input type="number" id="f-longlen" min="5" max="180" step="5" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label for="f-longpos" data-t="longPos"></label>
+              <select id="f-longpos"></select>
+            </div>
+          </div>
+          <p class="err" id="e-longLen" hidden></p>
+        </div>
+
+        <label class="switch" for="t-gw">
+          <span class="s-text"><b data-t="gwOn"></b></span>
+          <input type="checkbox" id="t-gw"><span class="track" aria-hidden="true"></span>
+        </label>
+        <div class="sub" id="w-gw" hidden>
+          <div class="row2">
+            <div class="field">
+              <label for="f-gather" data-t="gatherMin"></label>
+              <input type="number" id="f-gather" min="0" max="120" step="5" inputmode="numeric">
+            </div>
+            <div class="field">
+              <label for="f-wrap" data-t="wrapMin"></label>
+              <input type="number" id="f-wrap" min="0" max="120" step="5" inputmode="numeric">
+            </div>
+          </div>
+          <p class="err" id="e-gw" hidden></p>
+        </div>
+
+        <label class="switch" for="t-manual">
+          <span class="s-text"><b data-t="manual"></b><span class="hint" data-t="manualHint"></span></span>
+          <input type="checkbox" id="t-manual"><span class="track" aria-hidden="true"></span>
+        </label>
+      </div>
+    </section>
+
+    <section class="results">
+      <div class="panel summary" id="summary" aria-live="polite"></div>
+
+      <div class="panel table-panel">
+        <div class="table-tools">
+          <label class="switch" for="t-lect">
+            <span class="s-text"><b data-t="showLecturer"></b></span>
+            <input type="checkbox" id="t-lect"><span class="track" aria-hidden="true"></span>
+          </label>
+        </div>
+        <div class="tt-scroll" id="table-host"></div>
+        <dl class="totals" id="totals"></dl>
+      </div>
+
+      <div class="panel export" id="export">
+        <span class="lbl" data-t="exportLbl"></span>
+        <button type="button" class="xbtn primary" id="x-copy" data-t="copy"></button>
+        <button type="button" class="xbtn" id="x-xlsx">Excel</button>
+        <button type="button" class="xbtn" id="x-docx">Word</button>
+        <button type="button" class="xbtn" id="x-pdf">PDF</button>
+        <button type="button" class="xbtn" id="x-sheets">Google Sheets</button>
+        <label class="all" id="w-all" hidden><input type="checkbox" id="x-all"><span data-t="exportAll"></span></label>
+      </div>
+    </section>
+  </div>
+  <footer class="foot" data-t="footer"></footer>
+</div>
+<div id="pdf-stage" aria-hidden="true"></div>
+
+<script id="core">
+/* ===== Pure logic: no DOM. Tested in Node. ===== */
+var AH = 45;
+function toMin(s) {
+  var m = /^(\d{1,2}):(\d{2})$/.exec(s || '');
+  if (!m) return NaN;
+  var h = +m[1], mi = +m[2];
+  if (h > 23 || mi > 59) return NaN;
+  return h * 60 + mi;
+}
+function fmt(min) {
+  min = Math.round(min);
+  var h = Math.floor(min / 60), m = min % 60;
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+}
+function hmm(min) { return Math.floor(min / 60) + ':' + String(min % 60).padStart(2, '0'); }
+function isNum(v) { return typeof v === 'number' && isFinite(v); }
+
+function defaultDay() {
+  return {
+    name: '', start: '08:00', lecLen: 90, unit: 'min', brk: 15,
+    mode: 'count', count: 4, target: '14:00',
+    longOn: false, longLen: 30, longPos: 'auto',
+    gwOn: false, gather: 15, wrap: 15, gatherName: null, wrapName: null,
+    manual: false, showLecturer: false, lectures: []
+  };
+}
+function blankLecture() { return { name: null, lecturer: '', len: null, brk: null, brkName: null }; }
+function ensureLectures(day, n) { while (day.lectures.length < n) day.lectures.push(blankLecture()); }
+function lecAt(day, i) { return day.lectures[i] || {}; }
+function lecLenAt(day, i) { var l = lecAt(day, i).len; return day.manual && isNum(l) ? l : day.lecLen; }
+function brkAt(day, i) { var b = lecAt(day, i).brk; return day.manual && isNum(b) ? b : day.brk; }
+
+function build(day, N, longPos) {
+  var start = toMin(day.start), t = start, rows = [];
+  if (day.gwOn && day.gather > 0) { rows.push({ kind: 'gather', idx: -1, start: t, end: t + day.gather, len: day.gather }); t += day.gather; }
+  for (var i = 0; i < N; i++) {
+    var L = lecLenAt(day, i);
+    rows.push({ kind: 'lecture', idx: i, start: t, end: t + L, len: L }); t += L;
+    if (i < N - 1) {
+      var isLong = day.longOn && longPos === i + 1;
+      var b = isLong ? day.longLen : brkAt(day, i);
+      if (b > 0) { rows.push({ kind: isLong ? 'long' : 'break', idx: i, start: t, end: t + b, len: b }); t += b; }
+    }
+  }
+  if (day.gwOn && day.wrap > 0) { rows.push({ kind: 'wrap', idx: -1, start: t, end: t + day.wrap, len: day.wrap }); t += day.wrap; }
+  return { rows: rows, start: start, end: t };
+}
+function autoLongPos(day, N) {
+  if (N < 2) return null;
+  var base = build(day, N, null), mid = (base.start + base.end) / 2, best = null, bestD = Infinity;
+  base.rows.forEach(function (r) {
+    if (r.kind === 'lecture' && r.idx < N - 1) {
+      var d = Math.abs(r.end - mid);
+      if (d < bestD - 1e-9) { bestD = d; best = r.idx + 1; }
+    }
+  });
+  return best;
+}
+function schedule(day, N) {
+  var pos = null, reset = false;
+  if (day.longOn && N >= 2) {
+    if (day.longPos !== 'auto') {
+      var p = +day.longPos;
+      if (p >= 1 && p <= N - 1) pos = p; else { pos = autoLongPos(day, N); reset = true; }
+    } else pos = autoLongPos(day, N);
+  }
+  var b = build(day, N, pos);
+  b.longPos = pos; b.longReset = reset; b.N = N;
+  return b;
+}
+
+function computeDay(day) {
+  var errors = {}, start = toMin(day.start);
+  if (!isNum(start)) errors.start = 'start';
+  if (!isNum(day.lecLen) || day.lecLen < 15 || day.lecLen > 240) errors.lecLen = 'lecLen';
+  if (!isNum(day.brk) || day.brk < 0 || day.brk > 120) errors.brk = 'brk';
+  if (day.longOn && (!isNum(day.longLen) || day.longLen < 5 || day.longLen > 180)) errors.longLen = 'longLen';
+  if (day.gwOn && (!isNum(day.gather) || day.gather < 0 || day.gather > 120 || !isNum(day.wrap) || day.wrap < 0 || day.wrap > 120)) errors.gw = 'gw';
+  var target = toMin(day.target);
+  if (day.mode === 'count' && !day.manual && (!isNum(day.count) || day.count < 1 || day.count > 12 || Math.round(day.count) !== day.count)) errors.count = 'count';
+  if (day.mode === 'end') {
+    if (!isNum(target)) errors.target = 'target';
+    else if (isNum(start) && target <= start) errors.target = 'targetOrder';
+  }
+  if (Object.keys(errors).length) return { ok: false, errors: errors, general: null };
+
+  var res, next = null;
+  if (day.manual) res = schedule(day, Math.max(1, day.lectures.length));
+  else if (day.mode === 'count') res = schedule(day, day.count);
+  else {
+    var N = 0;
+    for (var n = 1; n <= 24; n++) { if (schedule(day, n).end <= target) N = n; else break; }
+    if (N === 0) return { ok: false, errors: {}, general: 'noneFits' };
+    res = schedule(day, N);
+    if (N < 24) next = schedule(day, N + 1);
+  }
+  if (res.end > 1440) return { ok: false, errors: {}, general: 'midnight' };
+  var out = { ok: true, errors: {}, general: null, res: res, next: next, target: day.mode === 'end' ? target : null };
+  if (day.mode === 'end') out.slack = target - res.end;
+  out.suggestions = suggestions(day, out);
+  return out;
+}
+
+function suggestions(day, r) {
+  if (day.manual || day.mode !== 'end' || !r.next) return null;
+  var X = r.next.end - r.target;
+  if (X <= 0 || X > 60) return null;
+  var list = [], start = toMin(day.start);
+  if (start - X >= 0) list.push({ type: 'start', value: start - X });
+  var Y = day.lecLen - X;
+  if (Y >= 45) list.push({ type: 'short', value: Y });
+  var reg = r.next.rows.filter(function (x) { return x.kind === 'break'; }).length;
+  if (reg > 0) { var Z = day.brk - Math.ceil(X / reg); if (Z >= 5) list.push({ type: 'breaks', value: Z }); }
+  list.push({ type: 'extend', value: r.next.end });
+  return { over: X, N: r.res.N, list: list };
+}
+
+function totalsOf(res) {
+  var t = { lectures: 0, lecMin: 0, brkMin: 0, other: 0, day: res.end - res.start, start: res.start, end: res.end };
+  res.rows.forEach(function (r) {
+    if (r.kind === 'lecture') { t.lectures++; t.lecMin += r.len; }
+    else if (r.kind === 'break' || r.kind === 'long') t.brkMin += r.len;
+    else t.other += r.len;
+  });
+  return t;
+}
+
+function rowName(day, row, S) {
+  if (row.kind === 'lecture') { var n = lecAt(day, row.idx).name; return n != null && n !== '' ? n : S.lecture + ' ' + (row.idx + 1); }
+  if (row.kind === 'break' || row.kind === 'long') { var b = lecAt(day, row.idx).brkName; return b != null && b !== '' ? b : (row.kind === 'long' ? S.longBreak : S.breakName); }
+  if (row.kind === 'gather') return day.gatherName || S.gather;
+  return day.wrapName || S.wrap;
+}
+
+/* Export model: one table per day */
+function exportModel(day, res, S, title) {
+  var incLect = res.rows.some(function (r) { return r.kind === 'lecture' && String(lecAt(day, r.idx).lecturer || '').trim(); });
+  var headers = ['#', S.colActivity].concat(incLect ? [S.colLecturer] : []).concat([S.colStart, S.colEnd, S.colLen]);
+  var rows = res.rows.map(function (r, k) {
+    var cells = [k + 1, rowName(day, r, S)];
+    if (incLect) cells.push(r.kind === 'lecture' ? String(lecAt(day, r.idx).lecturer || '') : '');
+    cells.push(fmt(r.start), fmt(r.end), r.len);
+    return { kind: r.kind, cells: cells };
+  });
+  var t = totalsOf(res), totals = [[S.totLectures, t.lectures], [S.totLecMin, t.lecMin], [S.totBrkMin, t.brkMin]];
+  if (t.other) totals.push([S.totOther, t.other]);
+  totals.push([S.totDay, t.day + ' ' + S.minWord + ' (' + hmm(t.day) + ')'], [S.totStartEnd, fmt(t.start) + ' - ' + fmt(t.end)]);
+  return { title: title, headers: headers, rows: rows, totals: totals, lenCol: headers.length - 1 };
+}
+
+function esc(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+function toTSV(models, multi) {
+  var out = [];
+  models.forEach(function (m, i) {
+    if (multi) { if (i) out.push(''); out.push(m.title); }
+    out.push(m.headers.join('\t'));
+    m.rows.forEach(function (r) { out.push(r.cells.join('\t')); });
+    out.push('');
+    m.totals.forEach(function (t) { out.push(t[0] + '\t' + t[1]); });
+  });
+  return out.join('\n');
+}
+function toCSV(models, multi) {
+  function q(v) { v = String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; }
+  var out = [];
+  models.forEach(function (m, i) {
+    if (multi) { if (i) out.push(''); out.push(q(m.title)); }
+    out.push(m.headers.map(q).join(','));
+    m.rows.forEach(function (r) { out.push(r.cells.map(q).join(',')); });
+    out.push('');
+    m.totals.forEach(function (t) { out.push(q(t[0]) + ',' + q(t[1])); });
+  });
+  return '﻿' + out.join('\r\n');
+}
+function toHTMLTables(models, rtl, multi) {
+  var dir = rtl ? 'rtl' : 'ltr', align = rtl ? 'right' : 'left';
+  var cell = 'border:1px solid #C9D2DC;padding:6px 10px;text-align:' + align + ';';
+  return models.map(function (m) {
+    var h = (multi ? '<h3 dir="' + dir + '" style="font-family:Arial;text-align:' + align + '">' + esc(m.title) + '</h3>' : '');
+    h += '<table dir="' + dir + '" style="border-collapse:collapse;font-family:Arial,sans-serif;font-size:11pt"><thead><tr>';
+    m.headers.forEach(function (x) { h += '<th style="' + cell + 'background:#DCE7F2;font-weight:bold">' + esc(x) + '</th>'; });
+    h += '</tr></thead><tbody>';
+    m.rows.forEach(function (r) {
+      var bg = r.kind === 'break' ? 'background:#F1F3F6;' : r.kind === 'long' ? 'background:#E3ECF5;' : '';
+      h += '<tr>' + r.cells.map(function (c) { return '<td style="' + cell + bg + '">' + esc(c) + '</td>'; }).join('') + '</tr>';
+    });
+    m.totals.forEach(function (t) {
+      h += '<tr><td colspan="' + (m.headers.length - 1) + '" style="' + cell + 'font-weight:bold">' + esc(t[0]) + '</td><td style="' + cell + '">' + esc(t[1]) + '</td></tr>';
+    });
+    return h + '</tbody></table>';
+  }).join('<br>');
+}
+
+/* --- XLSX (SpreadsheetML), returned as {path: xml} for zipping --- */
+function colL(i) { return String.fromCharCode(65 + i); }
+function xlsxFiles(models, rtl) {
+  var NS = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main', RNS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships';
+  var files = {}, used = {};
+  function sheetName(t, i) {
+    var n = String(t).replace(/[\\\/\?\*\[\]:]/g, ' ').slice(0, 31).trim() || ('Sheet' + (i + 1));
+    var base = n, k = 2; while (used[n]) { n = base.slice(0, 28) + ' ' + k++; } used[n] = 1; return n;
+  }
+  function c(ref, v, s) {
+    if (typeof v === 'number') return '<c r="' + ref + '" s="' + s + '"><v>' + v + '</v></c>';
+    return '<c r="' + ref + '" t="inlineStr" s="' + s + '"><is><t xml:space="preserve">' + esc(v) + '</t></is></c>';
+  }
+  var names = [];
+  models.forEach(function (m, si) {
+    var nc = m.headers.length, r = 1, xml = '';
+    xml += '<row r="1">' + c('A1', m.title, 1) + '</row>'; r = 3;
+    xml += '<row r="3">' + m.headers.map(function (h, i) { return c(colL(i) + 3, h, 2); }).join('') + '</row>';
+    m.rows.forEach(function (row) {
+      r++;
+      var txt = row.kind === 'break' ? 4 : row.kind === 'long' ? 5 : 3, ctr = row.kind === 'break' ? 8 : row.kind === 'long' ? 9 : 7;
+      xml += '<row r="' + r + '">' + row.cells.map(function (v, i) { return c(colL(i) + r, v, (i === 1 || (i === 2 && nc === 6)) ? txt : ctr); }).join('') + '</row>';
+    });
+    r++;
+    m.totals.forEach(function (t) {
+      r++;
+      xml += '<row r="' + r + '">' + c('A' + r, t[0], 6) + c(colL(nc - 1) + r, t[1], 7) + '</row>';
+    });
+    var merges = ['A1:' + colL(nc - 1) + '1'];
+    for (var k = r - m.totals.length + 1; k <= r; k++) merges.push('A' + k + ':' + colL(nc - 2) + k);
+    var widths = nc === 6 ? [6, 30, 22, 10, 10, 14] : [6, 30, 10, 10, 14];
+    var cols = widths.map(function (w, i) { return '<col min="' + (i + 1) + '" max="' + (i + 1) + '" width="' + w + '" customWidth="1"/>'; }).join('');
+    files['xl/worksheets/sheet' + (si + 1) + '.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="' + NS + '" xmlns:r="' + RNS + '"><sheetViews><sheetView workbookViewId="0"' + (rtl ? ' rightToLeft="1"' : '') + '/></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>' + cols + '</cols><sheetData>' + xml + '</sheetData><mergeCells count="' + merges.length + '">' + merges.map(function (x) { return '<mergeCell ref="' + x + '"/>'; }).join('') + '</mergeCells></worksheet>';
+    names.push(sheetName(m.title, si));
+  });
+  files['[Content_Types].xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + models.map(function (m, i) { return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') + '</Types>';
+  files['_rels/.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>';
+  files['xl/workbook.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="' + NS + '" xmlns:r="' + RNS + '"><bookViews><workbookView/></bookViews><sheets>' + names.map(function (n, i) { return '<sheet name="' + esc(n) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') + '</sheets></workbook>';
+  files['xl/_rels/workbook.xml.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + models.map(function (m, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') + '<Relationship Id="rId' + (models.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>';
+  var bd = '<border><left style="thin"><color rgb="FFC9D2DC"/></left><right style="thin"><color rgb="FFC9D2DC"/></right><top style="thin"><color rgb="FFC9D2DC"/></top><bottom style="thin"><color rgb="FFC9D2DC"/></bottom><diagonal/></border>';
+  function fill(rgb) { return '<fill><patternFill patternType="solid"><fgColor rgb="FF' + rgb + '"/><bgColor indexed="64"/></patternFill></fill>'; }
+  var ctr = '<alignment horizontal="center" vertical="center"/>';
+  files['xl/styles.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="' + NS + '"><fonts count="3"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><b/><sz val="14"/><name val="Arial"/></font></fonts><fills count="5"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>' + fill('DCE7F2') + fill('F1F3F6') + fill('E3ECF5') + '</fills><borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border>' + bd + '</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="10">' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>' +
+    '<xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyFont="1"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1">' + ctr + '</xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1"/>' +
+    '<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>' +
+    '<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1"/>' +
+    '<xf numFmtId="0" fontId="1" fillId="0" borderId="1" xfId="0" applyFont="1" applyBorder="1"/>' +
+    '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0" applyBorder="1" applyAlignment="1">' + ctr + '</xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="3" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">' + ctr + '</xf>' +
+    '<xf numFmtId="0" fontId="0" fillId="4" borderId="1" xfId="0" applyFill="1" applyBorder="1" applyAlignment="1">' + ctr + '</xf>' +
+    '</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+  return files;
+}
+
+/* --- DOCX (WordprocessingML), returned as {path: xml} --- */
+function docxFiles(models, rtl, docTitle, dateLine) {
+  var W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  function run(text, o) {
+    o = o || {};
+    var rp = '<w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:cs="Arial"/>' + (o.b ? '<w:b/><w:bCs/>' : '') + (o.color ? '<w:color w:val="' + o.color + '"/>' : '') + '<w:sz w:val="' + (o.sz || 22) + '"/><w:szCs w:val="' + (o.sz || 22) + '"/>' + (rtl ? '<w:rtl/>' : '');
+    return '<w:r><w:rPr>' + rp + '</w:rPr><w:t xml:space="preserve">' + esc(text) + '</w:t></w:r>';
+  }
+  function para(text, o) {
+    o = o || {};
+    var pp = (o.keep ? '<w:keepNext/>' : '') + '<w:spacing w:before="' + (o.before || 0) + '" w:after="' + (o.after == null ? 120 : o.after) + '"/>' + (rtl ? '<w:bidi/>' : '') + (o.center ? '<w:jc w:val="center"/>' : '');
+    return '<w:p><w:pPr>' + pp + '</w:pPr>' + run(text, o) + '</w:p>';
+  }
+  function tcell(text, w, o) {
+    o = o || {};
+    return '<w:tc><w:tcPr><w:tcW w:w="' + w + '" w:type="dxa"/>' + (o.span ? '<w:gridSpan w:val="' + o.span + '"/>' : '') + (o.fill ? '<w:shd w:val="clear" w:color="auto" w:fill="' + o.fill + '"/>' : '') + '<w:vAlign w:val="center"/></w:tcPr>' + para(text, { b: o.b, center: o.center, after: 0, before: 0 }) + '</w:tc>';
+  }
+  var body = para(docTitle, { b: true, sz: 32, after: 60 }) + para(dateLine, { color: '555555', sz: 20, after: 240 });
+  models.forEach(function (m, mi) {
+    if (models.length > 1) body += para(m.title, { b: true, sz: 26, before: mi ? 240 : 0, keep: true });
+    var nc = m.headers.length;
+    var widths = nc === 6 ? [600, 3600, 2338, 1100, 1100, 900] : [700, 5238, 1250, 1250, 1200];
+    var total = widths.reduce(function (a, b) { return a + b; }, 0);
+    var tbl = '<w:tbl><w:tblPr>' + (rtl ? '<w:bidiVisual/>' : '') + '<w:tblW w:w="' + total + '" w:type="dxa"/><w:tblBorders>' +
+      ['top', rtl ? 'right' : 'left', 'bottom', rtl ? 'left' : 'right', 'insideH', 'insideV'].map(function (s) { return '<w:' + s + ' w:val="single" w:sz="4" w:space="0" w:color="C9D2DC"/>'; }).join('') +
+      '</w:tblBorders><w:tblLayout w:type="fixed"/><w:tblCellMar><w:top w:w="60" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="60" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>' +
+      widths.map(function (w) { return '<w:gridCol w:w="' + w + '"/>'; }).join('') + '</w:tblGrid>';
+    tbl += '<w:tr><w:trPr><w:cantSplit/><w:tblHeader/></w:trPr>' + m.headers.map(function (h, i) { return tcell(h, widths[i], { b: true, fill: 'DCE7F2', center: true }); }).join('') + '</w:tr>';
+    m.rows.forEach(function (r) {
+      var fill = r.kind === 'break' ? 'F1F3F6' : r.kind === 'long' ? 'E3ECF5' : null;
+      tbl += '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + r.cells.map(function (v, i) { return tcell(v, widths[i], { fill: fill, center: !(i === 1 || (i === 2 && nc === 6)), b: r.kind === 'lecture' && i === 1 }); }).join('') + '</w:tr>';
+    });
+    var spanW = total - widths[nc - 1];
+    m.totals.forEach(function (t) {
+      tbl += '<w:tr><w:trPr><w:cantSplit/></w:trPr>' + tcell(t[0], spanW, { b: true, span: nc - 1 }) + tcell(t[1], widths[nc - 1], { center: true }) + '</w:tr>';
+    });
+    tbl += '</w:tbl>';
+    body += tbl + para('', { after: 0 });
+  });
+  var sect = '<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134" w:header="567" w:footer="567" w:gutter="0"/>' + (rtl ? '<w:bidi/>' : '') + '</w:sectPr>';
+  return {
+    '[Content_Types].xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>',
+    '_rels/.rels': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>',
+    'word/document.xml': '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<w:document xmlns:w="' + W + '"><w:body>' + body + sect + '</w:body></w:document>'
+  };
+}
+if (typeof module !== 'undefined') module.exports = { toMin: toMin, fmt: fmt, defaultDay: defaultDay, computeDay: computeDay, schedule: schedule, ensureLectures: ensureLectures, exportModel: exportModel, xlsxFiles: xlsxFiles, docxFiles: docxFiles, toCSV: toCSV, toTSV: toTSV };
+</script>
+
+<script>
+/* ===== UI ===== */
+var STRINGS = {
+  he: {
+    appTitle: 'מחולל לו"ז ליום הרצאות', tagline: 'מגדירים את היום, והלו"ז נבנה מעצמו',
+    settings: 'הגדרות', hide: 'הסתר', show: 'הצג', start: 'שעת התחלה', lecLen: 'משך הרצאה',
+    unitMin: 'דקות', unitAH: 'שעות אקדמיות', ahHint: 'שעה אקדמית = 45 דקות',
+    brk: 'הפסקה בין הרצאות (דקות)', mode: 'מצב תכנון', modeCount: 'לפי מספר הרצאות', modeEnd: 'לפי שעת סיום',
+    count: 'מספר הרצאות', target: 'שעת סיום יעד', countManual: 'במצב ידני מספר ההרצאות נקבע בטבלה.',
+    longOn: 'הפסקה ארוכה באמצע היום', longLen: 'משך (דקות)', longPos: 'מיקום', longAuto: 'אוטומטי (אמצע היום)',
+    afterLecture: function (n) { return 'אחרי הרצאה ' + n; },
+    gwOn: 'התכנסות וסיכום', gatherMin: 'התכנסות ורישום (דקות)', wrapMin: 'סיכום (דקות)',
+    manual: 'מצב ידני', manualHint: 'עריכת משך כל הרצאה וכל הפסקה בטבלה', showLecturer: 'הצג עמודת מרצה',
+    colActivity: 'פעילות', colLecturer: 'מרצה', colStart: 'התחלה', colEnd: 'סיום', colLen: 'משך (דקות)', colLenShort: "דק'",
+    lecture: 'הרצאה', breakName: 'הפסקה', longBreak: 'הפסקה ארוכה', gather: 'התכנסות ורישום', wrap: 'סיכום',
+    lecturerPh: 'שם המרצה', minWord: 'דקות',
+    endsAt: function (t) { return 'היום מסתיים ב-' + t; },
+    fits: function (n, t) { return n === 1 ? 'נכנסת הרצאה אחת, סיום ב-' + t : 'נכנסות ' + n + ' הרצאות, סיום ב-' + t; },
+    slack: function (m) { return m === 0 ? 'הסיום בדיוק בשעת היעד' : 'נשארות ' + m + ' דקות עד שעת היעד'; },
+    over: function (m) { return 'חריגה של ' + m + ' דקות משעת היעד'; },
+    sugTitle: 'כמעט נכנסת עוד הרצאה',
+    sugLead: function (x) { return 'הרצאה נוספת חורגת ב-' + x + ' דקות משעת היעד. אפשר:'; },
+    sugStart: function (t) { return 'הקדם את ההתחלה ל-' + t; },
+    sugShort: function (y) { return 'קצר את ההרצאה האחרונה ל-' + y + ' דקות'; },
+    sugBreaks: function (z) { return 'קצר את ההפסקות ל-' + z + ' דקות'; },
+    sugExtend: function (t) { return 'הארך את היום עד ' + t; },
+    totLectures: 'מספר הרצאות', totLecMin: 'דקות הרצאה', totBrkMin: 'דקות הפסקה', totOther: 'התכנסות וסיכום (דקות)', totDay: 'אורך היום', totStartEnd: 'התחלה - סיום',
+    err: {
+      start: 'יש להזין שעת התחלה', lecLen: 'משך ההרצאה חייב להיות בין 15 ל-240 דקות', brk: 'ההפסקה חייבת להיות בין 0 ל-120 דקות',
+      count: 'מספר ההרצאות חייב להיות מספר שלם בין 1 ל-12', target: 'יש להזין שעת סיום יעד', targetOrder: 'שעת הסיום חייבת להיות אחרי שעת ההתחלה',
+      longLen: 'ההפסקה הארוכה חייבת להיות בין 5 ל-180 דקות', gw: 'התכנסות וסיכום חייבים להיות בין 0 ל-120 דקות',
+      noneFits: 'אפילו הרצאה אחת לא נכנסת עד שעת היעד. קצר את ההרצאה או הקדם את ההתחלה.',
+      midnight: 'היום חורג מחצות; קצר את היום', longReset: 'מיקום ההפסקה הארוכה אופס לאוטומטי', fix: 'יש לתקן את השדות המסומנים. מוצג החישוב התקין האחרון.'
+    },
+    addDay: '+ יום', blankDay: 'יום ריק', dupDay: 'שכפל את היום הנוכחי', day: function (n) { return 'יום ' + n; },
+    renameDay: 'שנה שם', deleteDay: 'מחק יום', confirmDeleteDay: 'למחוק את היום הזה?', moreMenu: 'אפשרויות נוספות',
+    resetAll: 'אפס הכל', confirmReset: 'לאפס את כל הימים וההגדרות?',
+    confirmManualOff: 'לחזור לחישוב אוטומטי? השינויים הידניים יימחקו.', ok: 'אישור', cancel: 'ביטול', close: 'סגור',
+    addAfter: 'הוסף הרצאה אחרי', del: 'מחק', resetName: 'שחזר שם ברירת מחדל',
+    exportLbl: 'ייצוא', copy: 'העתק ללוח', exportAll: 'ייצא את כל הימים',
+    copied: 'הטבלה הועתקה', saved: 'הקובץ נשמר', preparing: 'מכין את הקובץ...',
+    sheetsToast: 'ייבא את הקובץ שהורדת: קובץ > ייבוא', openSheets: 'פתח את Google Sheets',
+    dlUnavailable: 'הורדת קבצים אינה זמינה בתצוגה זו', dlFailed: 'ההורדה לא הושלמה', libFail: 'לא הצלחתי לטעון את רכיב הייצוא. בדוק את החיבור ונסה שוב.',
+    copyManual: 'ההעתקה האוטומטית נחסמה. סמן את הטקסט והעתק ידנית:', nothingToExport: 'אין לו"ז תקין לייצוא. תקן את ההגדרות ונסה שוב.',
+    fileBase: 'לוז-יום-הרצאות', docTitle: 'לו"ז יום הרצאות', dateLine: function (d) { return 'הופק ב-' + d; },
+    convToAH: function (m, ah) { return m + ' דקות = ' + ah + ' שעות אקדמיות'; },
+    convToMin: function (ah, m) { return ah + ' שעות אקדמיות = ' + m + ' דקות'; },
+    footer: 'שעה אקדמית = 45 דקות · ההגדרות נשמרות בדפדפן שלך'
+  },
+  en: {
+    appTitle: 'Lecture Day Scheduler', tagline: 'Set up the day and the timetable builds itself',
+    settings: 'Settings', hide: 'Hide', show: 'Show', start: 'Start time', lecLen: 'Lecture length',
+    unitMin: 'Minutes', unitAH: 'Academic hours', ahHint: 'One academic hour = 45 minutes',
+    brk: 'Break between lectures (min)', mode: 'Planning mode', modeCount: 'By number of lectures', modeEnd: 'By target end time',
+    count: 'Number of lectures', target: 'Target end time', countManual: 'In manual mode the number of lectures is set in the table.',
+    longOn: 'Long midday break', longLen: 'Length (min)', longPos: 'Position', longAuto: 'Automatic (midday)',
+    afterLecture: function (n) { return 'After lecture ' + n; },
+    gwOn: 'Gathering and wrap-up', gatherMin: 'Gathering and registration (min)', wrapMin: 'Wrap-up (min)',
+    manual: 'Manual mode', manualHint: 'Edit the length of each lecture and break in the table', showLecturer: 'Show lecturer column',
+    colActivity: 'Activity', colLecturer: 'Lecturer', colStart: 'Start', colEnd: 'End', colLen: 'Length (min)', colLenShort: 'min',
+    lecture: 'Lecture', breakName: 'Break', longBreak: 'Long break', gather: 'Gathering and registration', wrap: 'Wrap-up',
+    lecturerPh: 'Lecturer name', minWord: 'min',
+    endsAt: function (t) { return 'The day ends at ' + t; },
+    fits: function (n, t) { return n === 1 ? '1 lecture fits, ending at ' + t : n + ' lectures fit, ending at ' + t; },
+    slack: function (m) { return m === 0 ? 'Ends exactly at the target' : m + ' minutes left before the target'; },
+    over: function (m) { return m + ' minutes past the target'; },
+    sugTitle: 'One more lecture almost fits',
+    sugLead: function (x) { return 'Another lecture would end ' + x + ' minutes past the target. You can:'; },
+    sugStart: function (t) { return 'Start earlier at ' + t; },
+    sugShort: function (y) { return 'Shorten the last lecture to ' + y + ' minutes'; },
+    sugBreaks: function (z) { return 'Shorten breaks to ' + z + ' minutes'; },
+    sugExtend: function (t) { return 'Extend the day to ' + t; },
+    totLectures: 'Lectures', totLecMin: 'Lecture minutes', totBrkMin: 'Break minutes', totOther: 'Gathering and wrap-up (min)', totDay: 'Day length', totStartEnd: 'Start - end',
+    err: {
+      start: 'Enter a start time', lecLen: 'Lecture length must be between 15 and 240 minutes', brk: 'Break must be between 0 and 120 minutes',
+      count: 'Number of lectures must be a whole number from 1 to 12', target: 'Enter a target end time', targetOrder: 'End time must be later than the start time',
+      longLen: 'Long break must be between 5 and 180 minutes', gw: 'Gathering and wrap-up must be between 0 and 120 minutes',
+      noneFits: 'Not even one lecture fits before the target. Shorten the lecture or start earlier.',
+      midnight: 'The day runs past midnight; shorten the day', longReset: 'Long-break position reset to automatic', fix: 'Fix the marked fields. Showing the last valid result.'
+    },
+    addDay: '+ Day', blankDay: 'Blank day', dupDay: 'Duplicate current day', day: function (n) { return 'Day ' + n; },
+    renameDay: 'Rename', deleteDay: 'Delete day', confirmDeleteDay: 'Delete this day?', moreMenu: 'More options',
+    resetAll: 'Reset all', confirmReset: 'Reset all days and settings?',
+    confirmManualOff: 'Return to automatic calculation? Manual edits will be discarded.', ok: 'OK', cancel: 'Cancel', close: 'Close',
+    addAfter: 'Add lecture after', del: 'Delete', resetName: 'Restore default name',
+    exportLbl: 'Export', copy: 'Copy to clipboard', exportAll: 'Export all days',
+    copied: 'Table copied', saved: 'File saved', preparing: 'Preparing the file...',
+    sheetsToast: 'Import the file you downloaded: File > Import', openSheets: 'Open Google Sheets',
+    dlUnavailable: 'File downloads are not available in this view', dlFailed: 'The download did not complete', libFail: 'Could not load the export component. Check your connection and try again.',
+    copyManual: 'Automatic copy was blocked. Select the text and copy it:', nothingToExport: 'There is no valid timetable to export. Fix the settings and try again.',
+    fileBase: 'lecture-day-schedule', docTitle: 'Lecture day timetable', dateLine: function (d) { return 'Generated on ' + d; },
+    convToAH: function (m, ah) { return m + ' minutes = ' + ah + ' academic hours'; },
+    convToMin: function (ah, m) { return ah + ' academic hours = ' + m + ' minutes'; },
+    footer: 'One academic hour = 45 minutes · Settings are saved in your browser'
+  }
+};
+
+var KEY = 'lectureDayScheduler.v1';
+var state, S, lastValid = {}, editingTab = null;
+
+function $(id) { return document.getElementById(id); }
+function sanitizeDay(d) {
+  var def = defaultDay(), out = Object.assign({}, def, d || {});
+  ['lecLen', 'brk', 'count', 'longLen', 'gather', 'wrap'].forEach(function (k) { if (!isNum(out[k])) out[k] = def[k]; });
+  if (!Array.isArray(out.lectures)) out.lectures = [];
+  out.lectures = out.lectures.map(function (l) { return Object.assign(blankLecture(), l || {}); });
+  return out;
+}
+function load() {
+  try {
+    var raw = localStorage.getItem(KEY);
+    if (!raw) return null;
+    var s = JSON.parse(raw);
+    if (!s || !Array.isArray(s.days) || !s.days.length) return null;
+    s.days = s.days.map(sanitizeDay);
+    s.lang = s.lang === 'en' ? 'en' : 'he';
+    s.active = Math.min(Math.max(0, s.active | 0), s.days.length - 1);
+    return s;
+  } catch (e) { return null; }
+}
+var saveTimer;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(function () { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} }, 300);
+}
+function freshState() { return { lang: 'he', active: 0, allDays: false, days: [defaultDay()] }; }
+state = load() || freshState();
+function day() { return state.days[state.active]; }
+function dayTitle(i) { return state.days[i].name || S.day(i + 1); }
+
+/* ----- i18n ----- */
+function applyLang() {
+  S = STRINGS[state.lang];
+  document.documentElement.lang = state.lang;
+  document.documentElement.dir = state.lang === 'he' ? 'rtl' : 'ltr';
+  document.title = S.appTitle;
+  document.querySelectorAll('[data-t]').forEach(function (el) { var v = S[el.getAttribute('data-t')]; if (typeof v === 'string') el.textContent = v; });
+  document.querySelectorAll('[data-t-aria]').forEach(function (el) { el.setAttribute('aria-label', S[el.getAttribute('data-t-aria')]); });
+  $('lang-he').setAttribute('aria-pressed', String(state.lang === 'he'));
+  $('lang-en').setAttribute('aria-pressed', String(state.lang === 'en'));
+  updateCollapseLabel();
+}
+
+/* ----- Settings binding ----- */
+function ahStr(m) { var v = Math.round(m / AH * 10) / 10; return String(v); }
+function bindSettings() {
+  var d = day();
+  $('f-start').value = d.start || '';
+  $('f-len').value = isNum(d.lecLen) ? (d.unit === 'ah' ? ahStr(d.lecLen) : d.lecLen) : '';
+  $('f-len').step = d.unit === 'ah' ? '0.5' : '5';
+  $('f-len').min = d.unit === 'ah' ? '0.5' : '15';
+  $('f-len').max = d.unit === 'ah' ? '5' : '240';
+  $('f-brk').value = isNum(d.brk) ? d.brk : '';
+  $('f-count').value = isNum(d.count) ? d.count : '';
+  $('f-target').value = d.target || '';
+  $('t-long').checked = d.longOn;
+  $('f-longlen').value = isNum(d.longLen) ? d.longLen : '';
+  $('t-gw').checked = d.gwOn;
+  $('f-gather').value = isNum(d.gather) ? d.gather : '';
+  $('f-wrap').value = isNum(d.wrap) ? d.wrap : '';
+  $('t-manual').checked = d.manual;
+  $('t-lect').checked = d.showLecturer;
+  updateSettingsUI();
+}
+function updateSettingsUI(r) {
+  var d = day();
+  document.querySelectorAll('#unit-seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.unit === d.unit)); });
+  document.querySelectorAll('#mode-seg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.mode === d.mode)); });
+  $('w-count').hidden = d.mode !== 'count' || d.manual;
+  $('w-count-manual').hidden = !d.manual;
+  $('w-target').hidden = d.mode !== 'end';
+  $('w-long').hidden = !d.longOn;
+  $('w-gw').hidden = !d.gwOn;
+  var conv = '';
+  if (isNum(d.lecLen)) conv = d.unit === 'ah' ? S.convToMin(ahStr(d.lecLen), d.lecLen) : S.convToAH(d.lecLen, ahStr(d.lecLen));
+  $('len-conv').textContent = conv;
+  // long-break position options
+  var N = r && r.ok ? r.res.N : (lastValid[state.active] ? lastValid[state.active].res.N : 0);
+  var sel = $('f-longpos'), cur = String(d.longPos), html = '<option value="auto">' + esc(S.longAuto) + '</option>';
+  for (var i = 1; i < N; i++) html += '<option value="' + i + '">' + esc(S.afterLecture(i)) + '</option>';
+  if (sel.innerHTML !== html) sel.innerHTML = html;
+  sel.value = cur; if (sel.value !== cur) sel.value = 'auto';
+  sel.disabled = N < 2;
+  // errors
+  var errs = r && !r.ok ? r.errors : {};
+  [['start', 'f-start'], ['lecLen', 'f-len'], ['brk', 'f-brk'], ['count', 'f-count'], ['target', 'f-target'], ['longLen', 'f-longlen'], ['gw', 'f-gather']].forEach(function (p) {
+    var e = $('e-' + p[0]); var code = errs[p[0]];
+    if (e) { e.hidden = !code; e.textContent = code ? S.err[code] : ''; }
+    $(p[1]).classList.toggle('invalid', !!code);
+    $(p[1]).setAttribute('aria-invalid', code ? 'true' : 'false');
+  });
+  if (errs.gw) $('f-wrap').classList.add('invalid'); else $('f-wrap').classList.remove('invalid');
+}
+
+function numVal(id) { var v = $(id).value; if (v === '') return NaN; return parseFloat(v); }
+function onSettings(e) {
+  var d = day(), id = e.target.id;
+  if (id === 'f-start') d.start = e.target.value;
+  else if (id === 'f-len') { var v = numVal('f-len'); d.lecLen = isNum(v) ? (d.unit === 'ah' ? Math.round(v * AH) : v) : NaN; }
+  else if (id === 'f-brk') d.brk = numVal('f-brk');
+  else if (id === 'f-count') d.count = numVal('f-count');
+  else if (id === 'f-target') d.target = e.target.value;
+  else if (id === 'f-longlen') d.longLen = numVal('f-longlen');
+  else if (id === 'f-longpos') d.longPos = e.target.value === 'auto' ? 'auto' : +e.target.value;
+  else if (id === 'f-gather') d.gather = numVal('f-gather');
+  else if (id === 'f-wrap') d.wrap = numVal('f-wrap');
+  else if (id === 't-long') d.longOn = e.target.checked;
+  else if (id === 't-gw') d.gwOn = e.target.checked;
+  else if (id === 't-lect') d.showLecturer = e.target.checked;
+  else return;
+  save(); render();
+}
+['input', 'change'].forEach(function (ev) { $('settings').addEventListener(ev, onSettings); });
+$('t-lect').addEventListener('change', onSettings);
+
+$('unit-seg').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  day().unit = b.dataset.unit; save(); bindSettings(); render();
+});
+$('mode-seg').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  var d = day(), m = b.dataset.mode; if (m === d.mode) return;
+  if (m === 'count' && lastValid[state.active] && !d.manual) d.count = lastValid[state.active].res.N;
+  d.mode = m; save(); bindSettings(); render();
+});
+$('t-manual').addEventListener('change', async function (e) {
+  var d = day();
+  if (e.target.checked) { materialize(d, currentN()); save(); render(); return; }
+  e.target.checked = true;
+  if (await confirmBox(S.confirmManualOff)) {
+    d.lectures.forEach(function (l) { l.len = null; l.brk = null; });
+    d.count = Math.min(12, Math.max(1, d.lectures.length));
+    d.manual = false; e.target.checked = false; save(); bindSettings(); render();
+  }
+});
+function currentN() { var lv = lastValid[state.active]; return lv ? lv.res.N : (isNum(day().count) ? day().count : 4); }
+function materialize(d, N) {
+  ensureLectures(d, N);
+  d.lectures = d.lectures.slice(0, N);
+  d.lectures.forEach(function (l) { if (!isNum(l.len)) l.len = d.lecLen; if (!isNum(l.brk)) l.brk = d.brk; });
+  d.manual = true;
+}
+
+/* ----- Render ----- */
+function render() {
+  var d = day(), r = computeDay(d);
+  if (r.ok) {
+    if (r.res.longReset) { d.longPos = 'auto'; save(); toast(S.err.longReset); }
+    ensureLectures(d, r.res.N);
+    lastValid[state.active] = r;
+  }
+  updateSettingsUI(r);
+  var shown = r.ok ? r : lastValid[state.active];
+  renderSummary(d, r, shown);
+  renderTable(d, shown, !r.ok);
+  renderTabs();
+  $('w-all').hidden = state.days.length < 2;
+  $('x-all').checked = !!state.allDays;
+}
+
+function renderSummary(d, r, shown) {
+  var h = '';
+  if (!r.ok) {
+    var msg = r.general ? S.err[r.general] : S.err.fix;
+    h += '<div class="banner" role="alert">' + esc(msg) + '</div>';
+  }
+  if (shown) {
+    var res = shown.res, end = fmt(res.end);
+    h += '<div class="headline' + (r.ok ? '' : ' stale') + '">';
+    if (d.mode === 'end' && !d.manual) {
+      h += '<span class="big">' + res.N + '</span><span class="txt">' + esc(S.fits(res.N, end)) + '</span>';
+      h += '<span class="slack">' + esc(S.slack(shown.slack)) + '</span>';
+    } else {
+      h += '<span class="big">' + end + '</span><span class="txt">' + esc(S.endsAt(end)) + '</span>';
+      if (d.mode === 'end' && isNum(shown.slack)) h += '<span class="slack">' + esc(shown.slack >= 0 ? S.slack(shown.slack) : S.over(-shown.slack)) + '</span>';
+    }
+    h += '</div>';
+    h += ribbon(d, res, !r.ok);
+    var sg = r.ok && r.suggestions;
+    if (sg) {
+      h += '<div class="suggest"><h3>' + esc(S.sugTitle) + '</h3><p>' + esc(S.sugLead(sg.over)) + '</p><ol>';
+      sg.list.forEach(function (s, i) {
+        var label = s.type === 'start' ? S.sugStart(fmt(s.value)) : s.type === 'short' ? S.sugShort(s.value) : s.type === 'breaks' ? S.sugBreaks(s.value) : S.sugExtend(fmt(s.value));
+        h += '<li><button type="button" data-sug="' + i + '">' + esc(label) + '</button></li>';
+      });
+      h += '</ol></div>';
+    }
+  }
+  $('summary').innerHTML = h;
+  $('summary').querySelectorAll('[data-sug]').forEach(function (b) {
+    b.addEventListener('click', function () { applySuggestion(r.suggestions.list[+b.dataset.sug], r); });
+  });
+}
+function ribbon(d, res, stale) {
+  var total = res.end - res.start || 1, h = '<div class="ribbon-box' + (stale ? ' stale' : '') + '" aria-hidden="true"><div class="ribbon">';
+  res.rows.forEach(function (row) {
+    var pct = row.len / total * 100;
+    var lbl = row.kind === 'lecture' && pct > 6 ? String(row.idx + 1) : '';
+    h += '<span class="k-' + row.kind + '" style="flex:' + row.len + ' 1 0" title="' + esc(rowName(d, row, S) + ' ' + fmt(row.start) + '-' + fmt(row.end)) + '">' + lbl + '</span>';
+  });
+  return h + '</div><div class="ribbon-ends"><span>' + fmt(res.start) + '</span><span>' + fmt(res.end) + '</span></div></div>';
+}
+function applySuggestion(s, r) {
+  var d = day();
+  if (s.type === 'start') d.start = fmt(s.value);
+  else if (s.type === 'breaks') d.brk = s.value;
+  else if (s.type === 'extend') d.target = fmt(s.value);
+  else if (s.type === 'short') { materialize(d, r.res.N + 1); d.lectures[d.lectures.length - 1].len = s.value; }
+  save(); bindSettings(); render();
+}
+
+function renderTable(d, shown, stale) {
+  var host = $('table-host'), tot = $('totals');
+  if (!shown) { host.innerHTML = ''; tot.innerHTML = ''; return; }
+  var res = shown.res, manual = d.manual, lect = d.showLecturer;
+  var h = '<table class="tt' + (stale ? ' stale' : '') + '"><thead><tr><th class="c-num">#</th><th>' + esc(S.colActivity) + '</th>' + (lect ? '<th class="c-lect">' + esc(S.colLecturer) + '</th>' : '') +
+    '<th class="c-time">' + esc(S.colStart) + '</th><th class="c-time">' + esc(S.colEnd) + '</th><th class="c-len"><span class="len-long">' + esc(S.colLen) + '</span></th>' + (manual ? '<th class="c-act"></th>' : '') + '</tr></thead><tbody>';
+  res.rows.forEach(function (row, k) {
+    var name = rowName(d, row, S), custom = isCustom(d, row);
+    var key = row.kind + ':' + row.idx;
+    h += '<tr class="k-' + row.kind + '"><td class="c-num">' + (k + 1) + '</td><td class="c-name"><div class="name-box"><input class="name-in" data-key="' + key + '" value="' + esc(name) + '" aria-label="' + esc(S.colActivity + ' ' + (k + 1)) + '">' +
+      (custom ? '<button type="button" class="reset-name" data-reset="' + key + '" title="' + esc(S.resetName) + '" aria-label="' + esc(S.resetName) + '">↺</button>' : '') + '</div>';
+    if (lect && row.kind === 'lecture') h += '<div class="lect-inline"><input class="lect-in" data-lect="' + row.idx + '" value="' + esc(lecAt(d, row.idx).lecturer || '') + '" placeholder="' + esc(S.lecturerPh) + '"></div>';
+    h += '</td>';
+    if (lect) h += '<td class="c-lect">' + (row.kind === 'lecture' ? '<input class="lect-in" data-lect="' + row.idx + '" value="' + esc(lecAt(d, row.idx).lecturer || '') + '" placeholder="' + esc(S.lecturerPh) + '" aria-label="' + esc(S.colLecturer) + '">' : '') + '</td>';
+    h += '<td class="c-time num">' + fmt(row.start) + '</td><td class="c-time num">' + fmt(row.end) + '</td><td class="c-len num">';
+    if (manual && (row.kind === 'lecture' || row.kind === 'break' || row.kind === 'long')) {
+      var mn = row.kind === 'lecture' ? 15 : 5;
+      h += '<input type="number" class="len-in" data-len="' + key + '" min="' + mn + '" max="300" step="5" value="' + row.len + '" aria-label="' + esc(S.colLen) + '">';
+    } else h += row.len;
+    h += '</td>';
+    if (manual) {
+      h += '<td class="c-act">';
+      if (row.kind === 'lecture') {
+        h += '<button type="button" class="row-btn" data-add="' + row.idx + '" title="' + esc(S.addAfter) + '" aria-label="' + esc(S.addAfter) + '">+</button> ';
+        if (res.N > 1) h += '<button type="button" class="row-btn danger" data-del="' + row.idx + '" title="' + esc(S.del) + '" aria-label="' + esc(S.del) + '">×</button>';
+      }
+      h += '</td>';
+    }
+    h += '</tr>';
+  });
+  host.innerHTML = h + '</tbody></table>';
+  if (window.matchMedia('(max-width: 600px)').matches) host.querySelectorAll('.len-long').forEach(function (s) { s.textContent = S.colLenShort; });
+  var t = totalsOf(res), items = [[S.totLectures, t.lectures], [S.totLecMin, t.lecMin], [S.totBrkMin, t.brkMin]];
+  if (t.other) items.push([S.totOther, t.other]);
+  items.push([S.totDay, t.day + ' ' + S.minWord + ' (' + hmm(t.day) + ')'], [S.totStartEnd, fmt(t.start) + ' - ' + fmt(t.end)]);
+  tot.innerHTML = items.map(function (x) { return '<div><dt>' + esc(x[0]) + '</dt><dd>' + esc(x[1]) + '</dd></div>'; }).join('');
+  tot.classList.toggle('stale', stale);
+}
+function isCustom(d, row) {
+  if (row.kind === 'lecture') return lecAt(d, row.idx).name != null && lecAt(d, row.idx).name !== '';
+  if (row.kind === 'break' || row.kind === 'long') return lecAt(d, row.idx).brkName != null && lecAt(d, row.idx).brkName !== '';
+  return row.kind === 'gather' ? !!d.gatherName : !!d.wrapName;
+}
+function setName(d, key, val) {
+  var p = key.split(':'), kind = p[0], idx = +p[1];
+  val = val.trim(); var v = val === '' ? null : val;
+  if (kind === 'lecture') { ensureLectures(d, idx + 1); if (v === S.lecture + ' ' + (idx + 1)) v = null; d.lectures[idx].name = v; }
+  else if (kind === 'break' || kind === 'long') { ensureLectures(d, idx + 1); if (v === S.breakName || v === S.longBreak) v = null; d.lectures[idx].brkName = v; }
+  else if (kind === 'gather') d.gatherName = v === S.gather ? null : v;
+  else d.wrapName = v === S.wrap ? null : v;
+}
+
+var tbl = $('table-host');
+tbl.addEventListener('change', function (e) {
+  var d = day(), el = e.target;
+  if (el.classList.contains('name-in')) { setName(d, el.dataset.key, el.value); save(); renderKeepFocus(); }
+  else if (el.classList.contains('lect-in')) {
+    var i = +el.dataset.lect; ensureLectures(d, i + 1); d.lectures[i].lecturer = el.value; save();
+    tbl.querySelectorAll('[data-lect="' + i + '"]').forEach(function (x) { if (x !== el) x.value = el.value; });
+  }
+  else if (el.classList.contains('len-in')) {
+    var p = el.dataset.len.split(':'), kind = p[0], idx = +p[1], v = parseFloat(el.value);
+    var mn = kind === 'lecture' ? 15 : 5; if (!isNum(v)) v = mn; v = Math.max(mn, Math.min(300, Math.round(v)));
+    if (kind === 'lecture') d.lectures[idx].len = v; else if (kind === 'break') d.lectures[idx].brk = v; else d.longLen = Math.min(180, v);
+    save(); bindSettings(); renderKeepFocus();
+  }
+});
+function renderKeepFocus() {
+  setTimeout(function () {
+    var a = document.activeElement, sel = null;
+    if (a && tbl.contains(a)) {
+      if (a.dataset.key) sel = '[data-key="' + a.dataset.key + '"]';
+      else if (a.dataset.len) sel = '[data-len="' + a.dataset.len + '"]';
+      else if (a.dataset.lect) sel = '.lect-in[data-lect="' + a.dataset.lect + '"]';
+    }
+    render();
+    if (sel) { var el = tbl.querySelector(sel); if (el && el.offsetParent !== null) el.focus(); }
+  }, 0);
+}
+tbl.addEventListener('keydown', function (e) {
+  var el = e.target;
+  if (!el.matches('.name-in, .lect-in, .len-in')) return;
+  if (e.key === 'Enter') { e.preventDefault(); el.blur(); }
+  else if (e.key === 'Escape') { el.value = el.defaultValue; el.blur(); }
+});
+tbl.addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  var d = day();
+  if (b.dataset.reset) { setName(d, b.dataset.reset, ''); save(); render(); }
+  else if (b.dataset.add != null) {
+    var i = +b.dataset.add, nl = blankLecture(); nl.len = d.lecLen; nl.brk = d.brk;
+    if (!isNum(d.lectures[i].brk)) d.lectures[i].brk = d.brk;
+    d.lectures.splice(i + 1, 0, nl); save(); render();
+  } else if (b.dataset.del != null) {
+    var j = +b.dataset.del; if (d.lectures.length < 2) return;
+    if (j > 0) { d.lectures[j - 1].brk = d.lectures[j].brk; d.lectures[j - 1].brkName = d.lectures[j].brkName; }
+    d.lectures.splice(j, 1); save(); render();
+  }
+});
+
+/* ----- Tabs and days ----- */
+function renderTabs() {
+  var nav = $('tabs');
+  nav.hidden = state.days.length < 2;
+  if (nav.hidden) { nav.innerHTML = ''; return; }
+  nav.innerHTML = state.days.map(function (d, i) {
+    var active = i === state.active;
+    if (editingTab === i) return '<span class="tab active"><input id="tab-edit" value="' + esc(dayTitle(i)) + '" aria-label="' + esc(S.renameDay) + '"></span>';
+    return '<span class="tab' + (active ? ' active' : '') + '"><button type="button" class="tab-name" data-tab="' + i + '" aria-current="' + (active ? 'page' : 'false') + '">' + esc(dayTitle(i)) + '</button>' +
+      (active ? '<button type="button" class="mini" data-rename="' + i + '" title="' + esc(S.renameDay) + '" aria-label="' + esc(S.renameDay) + '">✎</button><button type="button" class="mini" data-deltab="' + i + '" title="' + esc(S.deleteDay) + '" aria-label="' + esc(S.deleteDay) + '">×</button>' : '') + '</span>';
+  }).join('');
+  var ed = $('tab-edit');
+  if (ed) {
+    ed.focus(); ed.select();
+    var done = function (keep) { if (editingTab == null) return; var i = editingTab; editingTab = null; if (keep) { var v = ed.value.trim(); state.days[i].name = v === S.day(i + 1) ? '' : v; save(); } render(); };
+    ed.addEventListener('keydown', function (e) { if (e.key === 'Enter') done(true); else if (e.key === 'Escape') done(false); });
+    ed.addEventListener('blur', function () { done(true); });
+  }
+}
+$('tabs').addEventListener('click', async function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  if (b.dataset.tab != null) { state.active = +b.dataset.tab; save(); bindSettings(); render(); }
+  else if (b.dataset.rename != null) { editingTab = +b.dataset.rename; renderTabs(); }
+  else if (b.dataset.deltab != null) {
+    if (state.days.length < 2) return;
+    if (await confirmBox(S.confirmDeleteDay)) {
+      var i = +b.dataset.deltab; state.days.splice(i, 1);
+      var lv = {}; Object.keys(lastValid).forEach(function (k) { k = +k; if (k < i) lv[k] = lastValid[k]; else if (k > i) lv[k - 1] = lastValid[k]; }); lastValid = lv;
+      state.active = Math.max(0, Math.min(state.active, state.days.length - 1)); save(); bindSettings(); render();
+    }
+  }
+});
+function togglePop(btn, pop) {
+  var open = pop.hidden; closePops(); pop.hidden = !open; btn.setAttribute('aria-expanded', String(open));
+}
+function closePops() { ['add-day-pop', 'menu-pop'].forEach(function (id) { $(id).hidden = true; }); }
+$('add-day-btn').addEventListener('click', function (e) { e.stopPropagation(); togglePop(e.currentTarget, $('add-day-pop')); });
+$('menu-btn').addEventListener('click', function (e) { e.stopPropagation(); togglePop(e.currentTarget, $('menu-pop')); });
+document.addEventListener('click', function (e) { if (!e.target.closest('.pop')) closePops(); });
+document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closePops(); });
+$('add-blank').addEventListener('click', function () { closePops(); state.days.push(defaultDay()); state.active = state.days.length - 1; save(); bindSettings(); render(); });
+$('add-dup').addEventListener('click', function () {
+  closePops(); var c = JSON.parse(JSON.stringify(day())); c.name = ''; state.days.push(sanitizeDay(c)); state.active = state.days.length - 1; save(); bindSettings(); render();
+});
+$('reset-all').addEventListener('click', async function () {
+  closePops();
+  if (await confirmBox(S.confirmReset)) { var lang = state.lang; state = freshState(); state.lang = lang; lastValid = {}; save(); applyLang(); bindSettings(); render(); }
+});
+document.querySelectorAll('[data-lang]').forEach(function (b) {
+  b.addEventListener('click', function () { state.lang = b.dataset.lang; save(); applyLang(); bindSettings(); render(); });
+});
+var collapsed = false;
+function updateCollapseLabel() { var b = $('collapse-btn'); b.firstElementChild.textContent = collapsed ? S.show : S.hide; b.setAttribute('aria-expanded', String(!collapsed)); }
+$('collapse-btn').addEventListener('click', function () { collapsed = !collapsed; $('settings').classList.toggle('collapsed', collapsed); updateCollapseLabel(); });
+var phoneMQ = window.matchMedia('(max-width: 600px)');
+if (phoneMQ.addEventListener) phoneMQ.addEventListener('change', function () { render(); });
+
+/* ----- Modal and toast ----- */
+function confirmBox(msg) {
+  return new Promise(function (resolve) {
+    var back = document.createElement('div'); back.className = 'modal-back';
+    back.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><p>' + esc(msg) + '</p><div class="btns"><button type="button" class="cancel">' + esc(S.cancel) + '</button><button type="button" class="ok">' + esc(S.ok) + '</button></div></div>';
+    document.body.appendChild(back);
+    var done = function (v) { back.remove(); document.removeEventListener('keydown', key); resolve(v); };
+    var key = function (e) { if (e.key === 'Escape') done(false); };
+    document.addEventListener('keydown', key);
+    back.querySelector('.ok').addEventListener('click', function () { done(true); });
+    back.querySelector('.cancel').addEventListener('click', function () { done(false); });
+    back.addEventListener('click', function (e) { if (e.target === back) done(false); });
+    back.querySelector('.ok').focus();
+  });
+}
+function textBox(msg, text) {
+  var back = document.createElement('div'); back.className = 'modal-back';
+  back.innerHTML = '<div class="modal" role="dialog" aria-modal="true"><p>' + esc(msg) + '</p><textarea readonly></textarea><div class="btns"><button type="button" class="ok">' + esc(S.close) + '</button></div></div>';
+  document.body.appendChild(back);
+  var ta = back.querySelector('textarea'); ta.value = text; ta.focus(); ta.select();
+  back.querySelector('.ok').addEventListener('click', function () { back.remove(); });
+}
+var toastTimer;
+function toast(msg, link, ms) {
+  var old = document.querySelector('.toast'); if (old) old.remove();
+  var t = document.createElement('div'); t.className = 'toast'; t.setAttribute('role', 'status');
+  var s = document.createElement('span'); s.textContent = msg; t.appendChild(s);
+  if (link) { var a = document.createElement('a'); a.href = link.href; a.target = '_blank'; a.rel = 'noopener'; a.textContent = link.text; t.appendChild(a); }
+  document.body.appendChild(t);
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.remove(); }, ms || 2600);
+}
+
+/* ----- Export ----- */
+var dlPromise = null;
+function getDownloads() {
+  if (!(window.claude && typeof window.claude.use === 'function')) return Promise.resolve(undefined);
+  if (!dlPromise) dlPromise = window.claude.use('downloads').catch(function () { return null; });
+  return dlPromise;
+}
+getDownloads();
+var libs = {};
+function loadScript(src) {
+  if (!libs[src]) libs[src] = new Promise(function (res, rej) { var s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = function () { delete libs[src]; rej(new Error('load')); }; document.head.appendChild(s); });
+  return libs[src];
+}
+var JSZIP = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+var H2C = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+var JSPDF = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js';
+
+function models() {
+  var idxs = state.allDays && state.days.length > 1 ? state.days.map(function (_, i) { return i; }) : [state.active];
+  var out = [];
+  idxs.forEach(function (i) {
+    var d = state.days[i], r = computeDay(d);
+    if (!r.ok) r = lastValid[i];
+    if (!r) return;
+    var title = state.days.length > 1 ? dayTitle(i) : S.docTitle;
+    out.push(exportModel(d, r.res, S, title));
+  });
+  return out;
+}
+function multi() { return state.allDays && state.days.length > 1; }
+function stamp() { return new Date().toLocaleDateString(state.lang === 'he' ? 'he-IL' : 'en-GB', { day: 'numeric', month: 'long', year: 'numeric' }); }
+function fname(ext) {
+  var base = S.fileBase;
+  if (state.days.length > 1 && !state.allDays) base += '-' + dayTitle(state.active).replace(/[\\\/:*?"<>|]/g, ' ').trim();
+  return base + '.' + ext;
+}
+async function saveFile(name, blob) {
+  var dl = await getDownloads();
+  if (dl === undefined) {
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+    return true;
+  }
+  if (!dl) { toast(S.dlUnavailable); return false; }
+  try { await dl.save({ filename: name, data: blob }); return true; }
+  catch (e) { if (e && e.code !== 'declined') toast(e.code === 'rate_limited' ? S.dlFailed : S.dlFailed); return false; }
+}
+async function zip(files, mime) {
+  await loadScript(JSZIP);
+  var z = new JSZip(); Object.keys(files).forEach(function (p) { z.file(p, files[p]); });
+  return z.generateAsync({ type: 'blob', mimeType: mime, compression: 'DEFLATE' });
+}
+async function busy(btn, fn) {
+  var ms = models(); if (!ms.length) { toast(S.nothingToExport); return; }
+  btn.disabled = true;
+  try { await fn(ms); } catch (e) { toast(S.libFail); } finally { btn.disabled = false; }
+}
+$('x-all').addEventListener('change', function (e) { state.allDays = e.target.checked; save(); });
+
+$('x-copy').addEventListener('click', function () {
+  var ms = models(); if (!ms.length) { toast(S.nothingToExport); return; }
+  var rtl = state.lang === 'he', html = toHTMLTables(ms, rtl, multi()), text = toTSV(ms, multi());
+  var p;
+  try {
+    if (window.ClipboardItem && navigator.clipboard && navigator.clipboard.write) {
+      p = navigator.clipboard.write([new ClipboardItem({ 'text/html': new Blob([html], { type: 'text/html' }), 'text/plain': new Blob([text], { type: 'text/plain' }) })]);
+    } else p = navigator.clipboard.writeText(text);
+  } catch (e) { p = Promise.reject(e); }
+  p.then(function () { toast(S.copied); }).catch(function () {
+    try { navigator.clipboard.writeText(text).then(function () { toast(S.copied); }).catch(function () { textBox(S.copyManual, text); }); }
+    catch (e) { textBox(S.copyManual, text); }
+  });
+});
+$('x-xlsx').addEventListener('click', function (e) {
+  busy(e.currentTarget, async function (ms) {
+    var blob = await zip(xlsxFiles(ms, state.lang === 'he'), 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    if (await saveFile(fname('xlsx'), blob)) toast(S.saved);
+  });
+});
+$('x-docx').addEventListener('click', function (e) {
+  busy(e.currentTarget, async function (ms) {
+    var blob = await zip(docxFiles(ms, state.lang === 'he', S.docTitle, S.dateLine(stamp())), 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    if (await saveFile(fname('docx'), blob)) toast(S.saved);
+  });
+});
+$('x-sheets').addEventListener('click', function (e) {
+  busy(e.currentTarget, async function (ms) {
+    var blob = new Blob([toCSV(ms, multi())], { type: 'text/csv;charset=utf-8' });
+    if (await saveFile(fname('csv'), blob)) toast(S.sheetsToast, { href: 'https://docs.google.com/spreadsheets/create', text: S.openSheets }, 12000);
+  });
+});
+$('x-pdf').addEventListener('click', function (e) {
+  busy(e.currentTarget, async function (ms) {
+    toast(S.preparing);
+    await Promise.all([loadScript(H2C), loadScript(JSPDF)]);
+    var stage = $('pdf-stage'), rtl = state.lang === 'he';
+    stage.setAttribute('dir', rtl ? 'rtl' : 'ltr');
+    stage.innerHTML = ms.map(function (m) {
+      var h = '<div class="page"><h1>' + esc(S.docTitle) + '</h1><div class="date">' + esc(S.dateLine(stamp())) + '</div>' + (ms.length > 1 || state.days.length > 1 ? '<h2>' + esc(m.title) + '</h2>' : '');
+      h += '<table><thead><tr>' + m.headers.map(function (x) { return '<th>' + esc(x) + '</th>'; }).join('') + '</tr></thead><tbody>';
+      m.rows.forEach(function (r) { h += '<tr class="k-' + r.kind + '">' + r.cells.map(function (c) { return '<td>' + esc(c) + '</td>'; }).join('') + '</tr>'; });
+      h += '</tbody></table><table><tbody>' + m.totals.map(function (t) { return '<tr><th style="width:60%">' + esc(t[0]) + '</th><td>' + esc(t[1]) + '</td></tr>'; }).join('') + '</tbody></table></div>';
+      return h;
+    }).join('');
+    try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (x) {}
+    var pdf = new window.jspdf.jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+    var pages = stage.querySelectorAll('.page');
+    for (var i = 0; i < pages.length; i++) {
+      var canvas = await window.html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', logging: false });
+      var w = 210, hgt = canvas.height * w / canvas.width;
+      if (hgt > 297) { w = w * 297 / hgt; hgt = 297; }
+      if (i) pdf.addPage();
+      pdf.addImage(canvas.toDataURL('image/jpeg', 0.92), 'JPEG', (210 - w) / 2, 0, w, hgt);
+    }
+    stage.innerHTML = '';
+    var blob = pdf.output('blob');
+    if (await saveFile(fname('pdf'), blob)) toast(S.saved);
+  });
+});
+
+/* ----- Boot ----- */
+applyLang();
+bindSettings();
+render();
+</script>
+
+</body>
+</html>
